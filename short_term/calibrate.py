@@ -24,7 +24,9 @@ OUT_JSON = "output/review/calibration.json"
 
 
 def load_trades(path=REVIEW_CSV) -> pd.DataFrame:
-    df = pd.read_csv(path)
+    df = pd.read_csv(path, dtype={"code": str})
+    # 修复前导零丢失：CSV 里 "001316" 可能被读成 "1316"
+    df["code"] = df["code"].str.zfill(6)
     df = df[df["probability"].notna()]
     df = df[df["profit_pct"].notna()]
     df["is_win"] = df["profit_pct"] > 0
