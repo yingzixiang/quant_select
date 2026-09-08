@@ -207,6 +207,17 @@ python -m short_term.backtest_runner --start 2026-01-01 --end 2026-05-01 --prob 
 python -m archive.intraday.main_intraday --mode backtest --start 2026-01-01 --end 2026-06-01
 ```
 
+### 自动化运行（multica autopilot）
+
+平台定时自动化，跑完把报告以 issue 评论 @zale 送达（`create_issue` 模式，绑定「量化工程智能体」agent）：
+
+| 任务 | autopilot id | cron（Asia/Shanghai） | 内容 |
+|------|--------------|----------------------|------|
+| 每日短线选股 | `4e81f939-705d-460f-a809-c75d05603f5e` | `10 18 * * 1-5`（工作日 18:10） | 清缓存 → `main_short --mode select` → Top3 日报 |
+| 每月中线再平衡 | `cde123ae-3736-40b0-a601-a79843578013` | `0 8 15 * *`（每月 15 号 08:00） | `main.py --month YYYY-MM` → 宏观+组合月报 |
+
+管理命令：`multica autopilot list` / `trigger-update` / `delete` / `trigger`（手动跑一次）。
+
 ## 八、关键注意事项（上手必读）
 
 1. **手动宏观指标必须配置**：`config/manual_macro.py` 中 `social_financing`（API 滞后约 6 个月）、`credit_spread`（无 API）、`monetary_policy`/`fiscal_policy`/`meeting_tone`（定性）必须手动给分，否则走中性分或代理。
