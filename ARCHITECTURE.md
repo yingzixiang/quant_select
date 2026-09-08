@@ -11,9 +11,11 @@ quant_select 是一个**三引擎并存的 A 股 / 港股量化选股与回测�
 |------|------|----------|----------|------|
 | 中线月度再平衡 | `core/` + `main.py` | T+30 月度调仓 | 宏观择时 + 微观 12 因子 | `python main.py` |
 | 短线选股 | `short_term/` | T+1 买入 → T+3 卖出 | 47 因子 + XGBoost + 五级硬约束 | `python -m short_term.main_short` |
-| 日内 T+0 | `intraday/` | 分钟级底仓回转 | 环境过滤 + 行情分型 + 场景规则 | `python -m intraday.main_intraday` |
+| ~~日内 T+0~~ | ~~`intraday/`~~ → `archive/` | 分钟级底仓回转 | （已归档，见 `CONVERGENCE_DESIGN.md`） | — |
 
-三套系统**相互独立运行**，各有 CLI 入口、配置与输出目录，仅共享 `core/data_cache.py`（缓存层）与 `utils/common.py`（工具函数）等少量基座。
+> **收敛状态**：三引擎收敛方案 B 已采纳（2026-09-08）。日内引擎已归档到 `archive/intraday/`，当前活跃引擎为**中线月度 + 短线**两套，抽共享底座的重构（P1~P4）按 `CONVERGENCE_DESIGN.md` 分阶段推进。
+
+两套系统**相互独立运行**，各有 CLI 入口、配置与输出目录，仅共享 `core/data_cache.py`（缓存层）与 `utils/common.py`（工具函数）等少量基座。
 
 ## 二、技术栈与运行环境
 
@@ -53,20 +55,9 @@ quant_select/
 │   ├── backtest_engine.py   #   回测引擎（Position/Trade/指标）
 │   ├── backtest_runner.py   #   完整管线回测运行器
 │   └── model_cache/ output/ #   模型文件 / 选股结果 JSON
-├── intraday/                # 日内 T+0 底仓回转系统
-│   ├── main_intraday.py     #   CLI 入口（backtest/param-search）
-│   ├── pipeline.py          #   回测编排（标的池→分钟数据→执行）
-│   ├── config.py            #   十一层参数 + 参数矩阵 + 验收标准
-│   ├── data_fetcher.py      #   日线 + 分钟线 + 指数/板块数据
-│   ├── stock_pool.py        #   标的池筛选（流动性/波动/风险排除）
-│   ├── env_filter.py        #   全域环境过滤
-│   ├── market_classifier.py #   日内行情分型（震荡/趋势/反转/跳空）
-│   ├── indicators.py        #   ATR/均线/量能/K 线形态
-│   ├── signal_engine.py     #   分场景信号生成
-│   ├── signal_validator.py  #   信号校验防骗线
-│   ├── position_manager.py  #   动态仓位管理
-│   ├── risk_manager.py      #   全域硬风控
-│   └── backtest_engine.py   #   日内回测引擎
+├── archive/                 # 已归档代码（不再维护，git 保留历史）
+│   ├── intraday/            #   日内 T+0 底仓回转系统（已冻结）
+│   └── parameter_search.py  #   日内参数搜索（依赖 intraday，一并归档）
 ├── broker/                  # 下单对接层（信号 → 委托最后一公里）
 │   ├── base.py              #   Broker 抽象契约 + Order/Position 数据模型
 │   ├── paper.py             #   PaperBroker 模拟盘（本地撮合 + JSON 落盘）
@@ -133,7 +124,9 @@ Step 6 综合排序   final_score = 概率×0.55 + 因子×0.30 + 趋势强度×
 
 训练：`--mode train` 多日期采样（2 年窗口、每 3 天采样），标签为「3 日收益 >5% 为正 / <0 为负」。建议每月重训。
 
-## 六、日内 T+0 核心链路（`intraday/`）
+## 六、日内 T+0 核心链路（`archive/intraday/`，已归档）
+
+> ⚠️ 本节仅作历史参考。日内引擎已于 2026-09-08 归档到 `archive/intraday/`，不再维护（详见 `CONVERGENCE_DESIGN.md` 方案 B）。
 
 依据 `日内T交易.md` 的十一层架构实现（纯方案落代码），基于底仓日内回转（T+1 规则约束）：
 
@@ -187,12 +180,10 @@ python -m short_term.main_short --mode backtest --start 2025-01-01 --end 2026-05
 python -m short_term.backtest_runner --start 2026-01-01 --end 2026-05-01 --prob 0.5
 ```
 
-### 日内 T+0
+### 日内 T+0（已归档，不再使用）
 ```bash
-python -m intraday.main_intraday --mode backtest --start 2026-01-01 --end 2026-06-01
-python -m intraday.main_intraday --mode backtest --start ... --stocks 000858,600519
-python -m intraday.main_intraday --mode param-search --start ... --param atr_multiplier --range 1.2:1.8:0.1
-python parameter_search.py --start 2026-01-01 --end 2026-03-01 --all
+# 已归档到 archive/intraday/，如需复活：git mv archive/intraday intraday 后修复依赖
+python -m archive.intraday.main_intraday --mode backtest --start 2026-01-01 --end 2026-06-01
 ```
 
 ## 八、关键注意事项（上手必读）
@@ -203,7 +194,7 @@ python parameter_search.py --start 2026-01-01 --end 2026-03-01 --all
 4. **缓存清理**：`cache/*.pkl` TTL 过期自动失效；实盘前 `rm cache/*.pkl` 强制刷新收盘数据。
 5. **已知未完成**：部分前置风控（上市天数/审计意见）因无批量 API 跳过；多期回测与港股回测为 v1 近似实现（口径见下）。
 6. **状态文件**：`output/contrarian_state.json` 是逆向修正的跨月状态，删除会重置连续月计数。
-7. **两套/三套系统独立**：各自输出目录互不干扰；`cache/` 共享但键由函数名+参数 MD5 区分。
+7. **两套系统独立**：中线/短线各自输出目录互不干扰；`cache/` 共享但键由函数名+参数 MD5 区分。日内引擎已归档（`archive/`），不参与维护。
 
 ## 九、后续可推进方向与疑问
 
@@ -211,4 +202,4 @@ python parameter_search.py --start 2026-01-01 --end 2026-03-01 --all
 - **港股回测**（已实现 v1）：`core/trader.py::simulate_hk_holding_return`，`stock_hk_daily(前复权)` 等权，单月与多期均已接入。
 - **实盘/下单对接**（已实现 v1 模拟盘）：`broker/` 抽象层 + PaperBroker + 信号桥已跑通；真实券商 SDK 待 zale 确认渠道后接入（候选：QMT/miniQMT、PTrade、easytrader 等）。
 - **数据质量治理**：社融等宏观指标 API 滞后、资金流向覆盖率低，需明确数据可靠性分级。
-- **待 zale 决策**：① 三引擎是否长期并行维护，还是收敛到 1–2 套；② 实盘接入的券商/渠道（含是否需要自动盯盘 + 止损止盈触发）；③ 短线模型重训的自动化节奏；④ 多期回测是否需要更严格口径（复现单月流程 + 更真实的成本模型）。
+- **待 zale 决策**：① ~~三引擎收敛~~ → **已采纳方案 B**（归档日内、保留中线+短线，重构方案见 `CONVERGENCE_DESIGN.md`，按 P1~P4 推进）；② 实盘接入的券商/渠道（含是否需要自动盯盘 + 止损止盈触发）；③ 短线模型重训的自动化节奏；④ 多期回测是否需要更严格口径（复现单月流程 + 更真实的成本模型）。
