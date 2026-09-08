@@ -29,7 +29,12 @@ quant_select 是一个**三引擎并存的 A 股 / 港股量化选股与回测�
 ```
 quant_select/
 ├── main.py                  # 中线月度再平衡 CLI 入口
-├── parameter_search.py      # 日内参数敏感性网格搜索（复用 intraday）
+├── cli.py                   # 统一策略 CLI 入口（收敛重构 P3 新增）
+├── base/                    # 共享底座（收敛重构新增）
+│   ├── strategy.py          #   Strategy 接口 + Signal/Portfolio 数据模型
+│   ├── adapters.py          #   两套引擎 → Strategy 的薄适配器
+│   ├── data_fetch.py        #   统一数据获取（日线多源回退/资金流/指数）
+│   └── backtest.py          #   统一回测绩效指标层
 ├── core/                    # 中线月度再平衡系统
 │   ├── rebalance.py         #   月度再平衡编排（5 阶段流程）
 │   ├── macro_timing.py      #   21 项宏观指标打分 → 股债配比 + 风格判定
@@ -157,6 +162,22 @@ Step 6 综合排序   final_score = 概率×0.55 + 因子×0.30 + 趋势强度×
 python -m broker --query                                        # 查模拟盘账户
 python -m broker --file short_term/output/selection_YYYYMMDD.json --capital 1000000 --dry-run  # 干跑
 python -m broker --file short_term/output/selection_YYYYMMDD.json --capital 1000000            # 模拟盘下单
+```
+
+## 六.c、共享底座与统一策略接口（`base/`，收敛重构 P1~P3）
+
+三引擎收敛重构按 `CONVERGENCE_DESIGN.md` 推进，已落地：
+
+- **`base/data_fetch.py`**（P1）：统一数据获取——日线多源回退（东财→腾讯→新浪）、资金流向、指数、股票列表、流通市值。`short_term/data_fetcher.py` 已退化为兼容 shim。
+- **`base/backtest.py`**（P2）：统一回测绩效指标层——胜率/盈亏比/年化/最大回撤/夏普，消除两套回测的年化口径漂移。
+- **`base/strategy.py`**（P3）：`Strategy` 抽象接口 + `Signal`/`Portfolio` 数据模型，回测/下单/盯盘未来只依赖该接口。
+- **`base/adapters.py`**（P3）：`MonthlyStrategy`（包装 `core.rebalance`）与 `SwingStrategy`（包装 `short_term.daily_pipeline`）薄适配器，把两套输出归一化到 `Portfolio`。
+- **`cli.py`**（P3）：统一策略 CLI。老入口 `main.py` / `short_term.main_short` 保留。
+
+```bash
+python cli.py --strategy monthly --month 2026-05
+python cli.py --strategy monthly --backtest 2025-06 2026-05
+python cli.py --strategy swing --date 20260903
 ```
 
 ## 七、配置与运行方式

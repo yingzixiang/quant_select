@@ -179,6 +179,7 @@ def run_monthly_rebalance(
         "bond_weight": bond_weight,
         "style_allocation": style_allocation,
         "portfolio": target_codes,
+        "portfolio_details": portfolio_details,
         "post_check": check_result,
     }
     with open(f"{output_dir}/portfolio_{month}.json", "w") as f:
