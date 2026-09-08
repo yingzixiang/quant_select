@@ -97,15 +97,17 @@ def labels_to_binary(labels: pd.Series) -> pd.Series:
 
 
 def train_xgboost(X_train: np.ndarray, y_train: np.ndarray,
-                  X_valid: np.ndarray = None, y_valid: np.ndarray = None):
+                  X_valid: np.ndarray = None, y_valid: np.ndarray = None,
+                  scale_pos_weight: float = None):
     """
-    训练XGBoost二分类模型
+    训练XGBoost二分类模型（修复时序泄漏：无验证集时不再随机切分）
 
     Args:
         X_train: 训练特征矩阵
         y_train: 训练标签
         X_valid: 验证特征（用于early stopping）
         y_valid: 验证标签
+        scale_pos_weight: 正样本权重（None 则自动按 负样本数/正样本数 平衡）
 
     Returns:
         trained XGBoost model
@@ -115,27 +117,35 @@ def train_xgboost(X_train: np.ndarray, y_train: np.ndarray,
     params = XGB_PARAMS.copy()
     early_stopping = params.pop("early_stopping_rounds", 30)
 
+    if scale_pos_weight is None:
+        n_neg = int((np.asarray(y_train) == 0).sum())
+        n_pos = int((np.asarray(y_train) == 1).sum())
+        scale_pos_weight = (n_neg / n_pos) if n_pos > 0 else 1.0
+
+    model = xgb.XGBClassifier(**params)
     if X_valid is not None and y_valid is not None:
-        model = xgb.XGBClassifier(**params)
         model.fit(
             X_train, y_train,
+            sample_weight=_sample_weight(y_train, scale_pos_weight),
             eval_set=[(X_train, y_train), (X_valid, y_valid)],
             verbose=False,
         )
     else:
-        # 无验证集，使用train/test split
-        from sklearn.model_selection import train_test_split
-        X_tr, X_val, y_tr, y_val = train_test_split(
-            X_train, y_train, test_size=0.2, random_state=42
-        )
-        model = xgb.XGBClassifier(**params)
+        # 无验证集时不再用随机 train_test_split（会时序泄漏），
+        # 直接全量训练；样本权重仅用于损失，不改变标签分布
         model.fit(
-            X_tr, y_tr,
-            eval_set=[(X_tr, y_tr), (X_val, y_val)],
+            X_train, y_train,
+            sample_weight=_sample_weight(y_train, scale_pos_weight),
             verbose=False,
         )
 
     return model
+
+
+def _sample_weight(y, scale_pos_weight: float):
+    """正样本权重 = scale_pos_weight，负样本权重 = 1.0"""
+    y = np.asarray(y)
+    return np.where(y == 1, scale_pos_weight, 1.0)
 
 
 def evaluate_model(model, X_test: np.ndarray, y_test: np.ndarray) -> dict:

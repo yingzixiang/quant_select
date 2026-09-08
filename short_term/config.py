@@ -32,7 +32,7 @@ VOLUME_RATIO_MAX = 3.0         # 不放天量 < 3倍5日均量
 TRAIN_WINDOW_DAYS = 252        # 训练窗口 1年
 TEST_WINDOW_DAYS = 63          # 测试窗口 3个月
 LABEL_FORWARD_DAYS = 3         # 预测未来3日
-LABEL_POSITIVE_THRESHOLD = 0.05  # 3日收益 > 5% 为正样本
+LABEL_POSITIVE_THRESHOLD = 0.03  # 3日收益 > 3% 为正样本（v3.0 从 5% 放宽：增加正样本、缩小中间丢弃带）
 LABEL_NEGATIVE_THRESHOLD = 0.0   # 3日收益 < 0 为负样本
 
 # XGBoost 超参数
