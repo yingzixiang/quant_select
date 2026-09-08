@@ -35,3 +35,6 @@ output/contrarian_state.json
 .idea/
 .vscode/
 *.swp
+
+# ===== 复盘产物（可再生，不提交仓库）=====
+output/review/
