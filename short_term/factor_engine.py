@@ -160,6 +160,53 @@ def filter_by_ic(factor_df: pd.DataFrame, ic_series: pd.Series,
     return factor_df[selected]
 
 
+def select_features_by_ic(X: np.ndarray, y_cont: np.ndarray, feature_names: list,
+                          min_abs_ic: float = 0.03, max_factors: int = 80) -> tuple:
+    """
+    对 numpy 特征矩阵按 IC（Spearman rank corr vs 连续未来收益）筛选因子列
+
+    训练时真正生效的因子选择：只保留 |IC| >= min_abs_ic 的因子，最多 max_factors 个。
+    若全部因子都不达标，回退到全部特征（避免无特征可训练）。
+
+    Args:
+        X: 特征矩阵 (n_samples, n_features)
+        y_cont: 连续未来收益 (n_samples,)
+        feature_names: 特征列名
+        min_abs_ic: 最小绝对 IC
+        max_factors: 最大保留因子数
+
+    Returns:
+        (X_selected, selected_feature_names)
+    """
+    from scipy import stats
+
+    y_cont = np.asarray(y_cont, dtype=float)
+    n_features = X.shape[1]
+    ic_list = []
+    for j in range(n_features):
+        col = X[:, j]
+        if np.std(col) < 1e-12:
+            ic_list.append(0.0)
+            continue
+        ic, _ = stats.spearmanr(col, y_cont)
+        ic_list.append(0.0 if np.isnan(ic) else float(ic))
+
+    # 按 |IC| 降序选
+    order = np.argsort(np.abs(ic_list))[::-1]
+    selected = [j for j in order if abs(ic_list[j]) >= min_abs_ic][:max_factors]
+    selected = sorted(selected)  # 保持原始列顺序
+
+    if not selected:
+        print(f"[因子引擎] IC筛选：无因子达标（|IC| >= {min_abs_ic}），回退到全部 {n_features} 个因子")
+        sys.stdout.flush()
+        return X, feature_names
+
+    print(f"[因子引擎] IC筛选：{n_features} → {len(selected)} 个因子"
+          f"（min_abs_ic={min_abs_ic}, max_factors={max_factors}）")
+    sys.stdout.flush()
+    return X[:, selected], [feature_names[j] for j in selected]
+
+
 def preprocess_factors(factor_df: pd.DataFrame, forward_returns: pd.Series = None,
                        min_abs_ic: float = 0.03, max_factors: int = 80) -> pd.DataFrame:
     """

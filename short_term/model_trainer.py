@@ -13,7 +13,7 @@ from short_term.config import (
     XGB_PARAMS, TRAIN_WINDOW_DAYS, TEST_WINDOW_DAYS,
     LABEL_FORWARD_DAYS, LABEL_POSITIVE_THRESHOLD, LABEL_NEGATIVE_THRESHOLD,
     PREDICT_PROB_THRESHOLD, TOP_N_SELECT,
-    MODEL_OUTPUT_DIR,
+    MODEL_OUTPUT_DIR, MIN_FACTOR_IC, MAX_FACTOR_COUNT,
 )
 
 
@@ -221,6 +221,7 @@ def prepare_multi_date_dataset(kline_dict: dict, date_list: list,
 
     all_X = []
     all_y = []
+    all_y_cont = []
     all_date_codes = []
     feature_names = None
 
@@ -311,15 +312,18 @@ def prepare_multi_date_dataset(kline_dict: dict, date_list: list,
         # 对齐特征
         X_day = np.array([[r.get(f, 0.0) for f in feature_names] for r in rows])
         y_day = binary_labels.loc[valid_codes].values
+        y_cont_day = labels.loc[valid_codes].values
 
         # 去除 NaN/Inf
         valid_rows = ~np.isnan(X_day).any(axis=1) & ~np.isinf(X_day).any(axis=1)
         X_day = X_day[valid_rows]
         y_day = y_day[valid_rows]
+        y_cont_day = y_cont_day[valid_rows]
 
         if len(y_day) >= 20:
             all_X.append(X_day)
             all_y.append(y_day)
+            all_y_cont.append(y_cont_day)
             all_date_codes.extend([(train_date, c) for c in np.array(valid_codes)[valid_rows]])
 
         if (di + 1) % 10 == 0:
@@ -332,8 +336,16 @@ def prepare_multi_date_dataset(kline_dict: dict, date_list: list,
 
     X = np.vstack(all_X)
     y = np.concatenate(all_y)
+    y_cont = np.concatenate(all_y_cont)
     print(f"[多日期采样] 完成: {len(date_list)} 个日期 → {X.shape[0]} 样本 × {X.shape[1]} 特征")
     print(f"[多日期采样] 正样本: {y.sum()} ({(y.sum()/len(y))*100:.1f}%)")
+
+    # 因子 IC 筛选（训练时真正生效）
+    from short_term.factor_engine import select_features_by_ic
+    X, feature_names = select_features_by_ic(
+        X, y_cont, feature_names, min_abs_ic=MIN_FACTOR_IC, max_factors=MAX_FACTOR_COUNT,
+    )
+
     return X, y, all_date_codes, feature_names
 
 
