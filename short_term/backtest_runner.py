@@ -17,7 +17,7 @@ from short_term.config import (
     SINGLE_STOCK_WEIGHT, MAX_POSITION_COUNT, HOLD_DAYS,
     COMMISSION_RATE, SLIPPAGE, BACKTEST_BENCHMARKS,
 )
-from short_term.data_fetcher import fetch_a_stock_list, fetch_daily_kline_batch
+from base.data_fetch import fetch_a_stock_list, fetch_daily_kline_batch
 from short_term.alpha_factors import compute_alpha_factors_single
 from short_term.model_trainer import load_model
 

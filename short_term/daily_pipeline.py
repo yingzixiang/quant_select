@@ -23,7 +23,7 @@ from short_term.config import (
     FACTOR_SCORE_WEIGHTS,
     SPOT_PRE_FILTER_TOP_N, SPOT_ACTIVITY_WEIGHTS,
 )
-from short_term.data_fetcher import (
+from base.data_fetch import (
     fetch_a_stock_list, fetch_daily_kline_batch,
     fetch_money_flow_batch, fetch_index_daily, fetch_market_cap_float,
 )

@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 def mode_train(args):
     """训练模型（多日期采样，避免过拟合）"""
-    from short_term.data_fetcher import fetch_a_stock_list, fetch_daily_kline_batch
+    from base.data_fetch import fetch_a_stock_list, fetch_daily_kline_batch
     from short_term.alpha_factors import compute_alpha_factors_single
     from short_term.model_trainer import (
         prepare_labels, labels_to_binary, rolling_train, save_model,
@@ -99,7 +99,7 @@ def mode_select(args):
 
 def mode_backtest(args):
     """回测模式"""
-    from short_term.data_fetcher import fetch_a_stock_list, fetch_daily_kline_batch
+    from base.data_fetch import fetch_a_stock_list, fetch_daily_kline_batch
     from short_term.backtest_engine import BacktestEngine, simple_select_func
     from datetime import datetime, timedelta
 
