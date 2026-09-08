@@ -225,65 +225,25 @@ class BacktestEngine:
         return float(match["open"].iloc[-1])
 
     def _compute_metrics(self) -> Dict:
-        """计算回测核心指标"""
+        """计算回测核心指标（复用统一指标层 base/backtest.py）"""
+        from base.backtest import compute_backtest_metrics
+
         trades = self.closed_trades
         if not trades:
             return {"error": "无交易记录"}
 
-        # 胜率
-        wins = [t for t in trades if t["win"]]
-        win_rate = len(wins) / len(trades)
+        trades_pct = [t["profit_pct"] for t in trades]
+        equity = pd.Series(self.daily_values).sort_index()
 
-        # 盈亏比
-        win_profits = [t["profit_pct"] for t in wins]
-        loss_trades = [t for t in trades if not t["win"]]
-        avg_win = np.mean(win_profits) if win_profits else 0
-        avg_loss = abs(np.mean([t["profit_pct"] for t in loss_trades])) if loss_trades else 1
-        profit_loss_ratio = avg_win / avg_loss if avg_loss > 0 else 0
-
-        # 年化收益率
-        total_return = (self._total_value() - self.initial_capital) / self.initial_capital
-
-        # 计算回测天数
-        dates = sorted(self.daily_values.keys())
-        if len(dates) >= 2:
-            d1 = datetime.strptime(dates[0], "%Y%m%d")
-            d2 = datetime.strptime(dates[-1], "%Y%m%d")
-            days = (d2 - d1).days
-            years = days / 252
-            annual_return = (1 + total_return) ** (1 / years) - 1 if years > 0 else 0
-        else:
-            annual_return = total_return
-
-        # 最大回撤
-        values = pd.Series(self.daily_values).sort_index()
-        peak = values.cummax()
-        drawdown = (values - peak) / peak
-        max_drawdown = abs(drawdown.min())
-
-        # 夏普比率
-        daily_returns = values.pct_change().dropna()
-        if len(daily_returns) > 1 and daily_returns.std() > 0:
-            sharpe = (daily_returns.mean() / daily_returns.std()) * np.sqrt(252)
-        else:
-            sharpe = 0
-
-        # 总交易次数
-        total_trades = len(trades)
-
-        return {
-            "initial_capital": self.initial_capital,
-            "final_value": self._total_value(),
-            "total_return": total_return,
-            "annual_return": annual_return,
-            "win_rate": win_rate,
-            "profit_loss_ratio": profit_loss_ratio,
-            "max_drawdown": max_drawdown,
-            "sharpe_ratio": sharpe,
-            "total_trades": total_trades,
-            "avg_win_pct": avg_win,
-            "avg_loss_pct": -avg_loss,
-        }
+        metrics = compute_backtest_metrics(
+            trades_pct=trades_pct,
+            equity=equity,
+            initial_capital=self.initial_capital,
+            final_value=self._total_value(),
+        )
+        metrics["initial_capital"] = self.initial_capital
+        metrics["final_value"] = self._total_value()
+        return metrics
 
     def _print_report(self, metrics: Dict):
         """打印回测报告"""

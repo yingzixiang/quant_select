@@ -341,34 +341,32 @@ def run_backtest(start_date: str, end_date: str, sample_size: int = 500,
     print(f"  概率阈值过滤后:  {filter_stats.get('prob_filtered', filter_stats['candidates']):>6}  (阈值={prob_threshold})")
     print(f"  最大模型概率:    {filter_stats['max_prob']:.3f}")
 
-    # ===== 计算指标 =====
+    # ===== 计算指标（复用统一指标层 base/backtest.py）=====
+    from base.backtest import compute_backtest_metrics
+
     trades_arr = np.array(closed_trades) if closed_trades else np.array([])
 
     if len(trades_arr) == 0:
         print("\n[回测] 无任何交易")
         return None
 
-    win_rate = float((trades_arr > 0).sum() / len(trades_arr))
-    wins = trades_arr[trades_arr > 0]
-    losses = trades_arr[trades_arr <= 0]
-    avg_win = float(wins.mean()) if len(wins) > 0 else 0
-    avg_loss = float(abs(losses.mean())) if len(losses) > 0 else 0.01
-    profit_loss_ratio = avg_win / avg_loss if avg_loss > 0 else 0
-
     final_value = cash
-    total_return = (final_value - initial_capital) / initial_capital
-
     values_series = pd.Series(daily_values).sort_index()
-    peak = values_series.cummax()
-    drawdown = (values_series - peak) / peak
-    max_drawdown = abs(float(drawdown.min()))
 
-    days = (end_dt - start_dt).days
-    years = max(days / 252, 0.01)
-    annual_return = (1 + total_return) ** (1 / years) - 1
-
-    daily_ret = values_series.pct_change().dropna()
-    sharpe = float(daily_ret.mean() / daily_ret.std() * np.sqrt(252)) if len(daily_ret) > 1 and daily_ret.std() > 0 else 0
+    metrics = compute_backtest_metrics(
+        trades_pct=trades_arr,
+        equity=values_series,
+        initial_capital=initial_capital,
+        final_value=final_value,
+    )
+    win_rate = metrics["win_rate"]
+    avg_win = metrics["avg_win_pct"]
+    avg_loss = -metrics["avg_loss_pct"]
+    profit_loss_ratio = metrics["profit_loss_ratio"]
+    total_return = metrics["total_return"]
+    annual_return = metrics["annual_return"]
+    max_drawdown = metrics["max_drawdown"]
+    sharpe = metrics["sharpe_ratio"]
 
     # ===== 打印报告 =====
     bm = BACKTEST_BENCHMARKS
