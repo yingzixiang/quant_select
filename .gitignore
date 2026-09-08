@@ -1,0 +1,37 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+
+# ===== 虚拟环境 =====
+.venv/
+venv/
+
+# ===== 运行时缓存（AKShare pickle 缓存，可重新拉取）=====
+cache/
+
+# ===== 生成产物 =====
+output/
+log/
+*.log
+
+# ===== 训练模型（可重训的二进制产物）=====
+short_term/model_cache/*.pkl
+
+# ===== 本地状态文件 =====
+output/paper_account.json
+output/contrarian_state.json
+
+# ===== 二进制数据文件（本地私有/大体积）=====
+*.xls
+*.xlsx
+
+# ===== macOS =====
+.DS_Store
+
+# ===== 编辑器 / IDE =====
+.idea/
+.vscode/
+*.swp
